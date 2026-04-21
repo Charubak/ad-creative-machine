@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: adcreative
+      POSTGRES_PASSWORD: adcreative
+      POSTGRES_DB: adcreative
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/migrations/0001_ad_machine_tables.sql:/docker-entrypoint-initdb.d/0001_init.sql
+
+  backend:
+    build:
+      context: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://adcreative:adcreative@db:5432/adcreative
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+      - asset_data:/tmp/ad-machine-assets
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:
+  asset_data:

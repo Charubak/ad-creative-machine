@@ -8,7 +8,7 @@ from ad_machine.schemas.creative_pack import VisualAsset
 from ad_machine.storage.asset_store import AssetStore
 
 # Verify this model ID against https://ai.google.dev/gemini-api/docs/image-generation at build time
-GEMINI_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-preview-image-generation")
+GEMINI_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 PLATFORM_IMAGE_SPECS = {
     "x": [

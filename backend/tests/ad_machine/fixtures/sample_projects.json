@@ -1,0 +1,40 @@
+[
+  {
+    "id": "sample_defi_v1",
+    "description": "Mid-stage DeFi yield protocol — standard test case",
+    "input": {
+      "protocol_name": "YieldForge",
+      "chains": ["ethereum", "arbitrum"],
+      "stage": "growth",
+      "tvl": 48000000,
+      "monthly_active_users": 12000,
+      "token_ticker": "YFG",
+      "target_audience_raw": "DeFi farmers aged 25-40, technically fluent, yield-focused, skeptical of empty promises. They've been rugged before and value transparency and audits.",
+      "differentiators": "Delta-neutral yield strategy averaging 14.2% APY. Audited by Certik and Trail of Bits. No lockups — withdraw anytime. $48M TVL with zero exploits.",
+      "campaign_goal": "deposit_intent",
+      "budget_tier": "growth",
+      "voice_profile_id": null,
+      "platforms": ["x", "linkedin", "meta"],
+      "extra_context": "Competing against Pendle and Convex. Our edge is simplicity — one click to deploy, no veTokenomics complexity."
+    }
+  },
+  {
+    "id": "sample_l2_launch",
+    "description": "L2 mainnet launch campaign",
+    "input": {
+      "protocol_name": "NexLayer",
+      "chains": ["ethereum"],
+      "stage": "launch",
+      "tvl": 0,
+      "monthly_active_users": 0,
+      "token_ticker": "NXL",
+      "target_audience_raw": "Ethereum developers tired of high gas fees. Building dApps, NFT projects, or DeFi protocols on mainnet. Looking for EVM-compatible, fast, cheap.",
+      "differentiators": "Full EVM equivalence. 50ms block times. Gas fees under $0.001. Native account abstraction. Backed by Paradigm and a16z.",
+      "campaign_goal": "developer_signups",
+      "budget_tier": "scale",
+      "voice_profile_id": null,
+      "platforms": ["x", "linkedin"],
+      "extra_context": "Mainnet launches in 3 weeks. Testnet has 180k wallets. Need to convert testnet users to mainnet early adopters."
+    }
+  }
+]
