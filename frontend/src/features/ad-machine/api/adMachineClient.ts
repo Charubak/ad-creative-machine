@@ -1,6 +1,7 @@
 import type { ProjectInput } from "../types";
 
-const BASE = "/api/ad-machine";
+const API_ROOT = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const BASE = `${API_ROOT}/api/ad-machine`;
 
 async function req<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, { credentials: "include", ...options });
