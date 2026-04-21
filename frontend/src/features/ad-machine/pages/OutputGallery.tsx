@@ -31,14 +31,11 @@ export function OutputGallery({ packId, onIterateReady }: Props) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [cp, raw] = await Promise.all([
-          adMachineApi.getCreativePack(packId) as Promise<CreativePack>,
-          adMachineApi.getCreativePack(packId),
-        ]);
+        const cp = await adMachineApi.getCreativePack(packId) as unknown as CreativePack;
         setPack(cp);
-        const copyRaw = await adMachineApi.getCopyPack((cp as any).copy_pack_id) as CopyPack;
+        const copyRaw = await adMachineApi.getCopyPack(cp.copy_pack_id) as unknown as CopyPack;
         setCopyPack(copyRaw);
-        const briefRaw = await adMachineApi.getBrief((cp as any).brief_id);
+        const briefRaw = await adMachineApi.getBrief(cp.brief_id);
         setBrief(briefRaw);
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Failed to load");
