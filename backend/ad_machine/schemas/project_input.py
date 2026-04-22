@@ -1,26 +1,46 @@
 from pydantic import BaseModel, Field
 from typing import Literal
 
-ProtocolType = Literal[
-    "dex", "lending", "yield_aggregator", "bridge", "restaking", "liquid_staking",
-    "perps", "options", "rwa", "launchpad", "dao", "nft_infra", "l1", "l2", "wallet", "other"
+Industry = Literal[
+    "saas", "ecommerce", "fintech", "health", "crypto", "agency", "media", "education", "other"
 ]
 
-Stage = Literal["pre_launch", "testnet", "mainnet_early", "mainnet_growth", "mature"]
+ProductCategory = Literal[
+    # General / Tech
+    "saas", "app", "platform", "marketplace", "api_tool", "ai_tool",
+    # E-commerce / Consumer
+    "ecommerce", "d2c", "subscription", "retail",
+    # Finance
+    "fintech", "payments", "insurance",
+    # Health
+    "health", "wellness", "fitness",
+    # Crypto/DeFi (kept for compatibility)
+    "dex", "lending", "yield_aggregator", "bridge", "restaking", "liquid_staking",
+    "perps", "options", "rwa", "launchpad", "dao", "nft_infra", "l1", "l2", "wallet",
+    # Generic
+    "other"
+]
+
+Stage = Literal[
+    "pre_launch", "beta", "early_growth", "growth", "mature",
+    # Legacy crypto stages kept for compatibility
+    "testnet", "mainnet_early", "mainnet_growth",
+]
 
 BudgetTier = Literal["under_5k", "5k_25k", "25k_100k", "over_100k"]
 
 
 class ProjectInput(BaseModel):
     # Project Basics
-    protocol_name: str = Field(..., min_length=1, max_length=100)
-    protocol_type: ProtocolType
-    chains: list[str] = Field(..., min_length=1)
+    protocol_name: str = Field(..., min_length=1, max_length=100)  # also used as product/brand name
+    industry: Industry = "other"
+    protocol_type: ProductCategory = "other"
+    chains: list[str] = []  # optional — only relevant for crypto products
     token_symbol: str | None = None
     token_live: bool = False
-    stage: Stage
+    stage: Stage = "growth"
 
-    # Live Metrics (all optional but recommended)
+    # Live Metrics (all optional)
     tvl: str | None = None
     volume_24h: str | None = None
     apr: str | None = None
@@ -32,7 +52,7 @@ class ProjectInput(BaseModel):
     competitive_positioning: str = Field(..., min_length=10)
     differentiators: list[str] = Field(..., min_length=1)
     campaign_goal: str
-    budget_tier: BudgetTier
+    budget_tier: BudgetTier = "5k_25k"
     geo: str = "global"
     excluded_geos: list[str] = []
 

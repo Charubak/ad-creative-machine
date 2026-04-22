@@ -168,7 +168,6 @@ class CopyGenerator:
             max_tokens=4000,
             system=system,
             messages=[{"role": "user", "content": user}],
-            temperature=0.85,
         )
 
         raw = response.content[0].text.strip()

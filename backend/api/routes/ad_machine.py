@@ -19,6 +19,12 @@ from ad_machine.exporters import zip_bundle, google_rsa_csv, buffer_push
 
 router = APIRouter(prefix="/api/ad-machine", tags=["ad-machine"])
 
+# ── Module-level singletons ────────────────────────────────────────────────────
+# Set by main.py lifespan so route handlers don't need a typed Request param.
+_repo = None
+_orchestrator_instance = None
+_asset_store_instance = None
+
 # ── In-memory SSE event bus ────────────────────────────────────────────────────
 # For production, swap this with Redis pub/sub.
 _sse_queues: dict[str, list[asyncio.Queue]] = {}
@@ -30,20 +36,20 @@ async def _emit_event(job_id: str, event_type: str, payload: dict) -> None:
         await q.put(event_str)
 
 
-def _get_orchestrator(request) -> AdMachineOrchestrator:
-    return request.app.state.orchestrator
+def _get_orchestrator(request=None) -> AdMachineOrchestrator:
+    return _orchestrator_instance
 
 
-def _get_repo(request):
-    return request.app.state.repo
+def _get_repo(request=None):
+    return _repo
 
 
-def _get_asset_store(request):
-    return request.app.state.asset_store
+def _get_asset_store(request=None):
+    return _asset_store_instance
 
 
-def _get_copy_pack_store(request):
-    return request.app.state.repo
+def _get_copy_pack_store(request=None):
+    return _repo
 
 
 # ── Request/Response models ────────────────────────────────────────────────────
@@ -270,6 +276,39 @@ async def regenerate_copy(variation_id: str, request=None):
 
 
 # ── Visual Assets ─────────────────────────────────────────────────────────────
+
+@router.get("/visual-assets/{asset_id}/image")
+async def serve_visual_asset(asset_id: str, request=None):
+    """Serve image bytes for a visual asset — works for local file:// and S3 URLs."""
+    repo = _get_repo(request)
+    try:
+        pack = None
+        # Search all creative packs for this asset
+        for p in repo._creative_packs.values():
+            if asset_id in p.visual_assets:
+                pack = p
+                break
+        if not pack:
+            raise KeyError("not found")
+        asset = pack.visual_assets[asset_id]
+    except (KeyError, AttributeError):
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    url = asset.url
+    if url.startswith("file://"):
+        import aiofiles
+        path = url[len("file://"):]
+        try:
+            async with aiofiles.open(path, "rb") as f:
+                data = await f.read()
+            return Response(content=data, media_type="image/png")
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Image file not found on disk")
+    else:
+        # S3/R2 public URL — redirect
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=url)
+
 
 @router.post("/visual-assets/{asset_id}/regenerate")
 async def regenerate_visual(asset_id: str, background_tasks: BackgroundTasks, request=None):

@@ -452,3 +452,257 @@ body {
   color: var(--amber);
   font-weight: 500;
 }
+
+/* ── Generate Page ──────────────────────────────────────────────────────────── */
+
+.am-generate-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.am-generate-header {
+  margin-bottom: 2.5rem;
+}
+
+.am-generate-header h1 {
+  font-family: var(--serif);
+  color: var(--text-bright);
+  font-size: 1.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.am-generate-header p {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.am-generate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* Field groups */
+
+.am-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.am-field-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.am-field-label.am-required::after {
+  content: " *";
+  color: var(--amber);
+}
+
+.am-field-sub {
+  color: var(--text-dim);
+  opacity: 0.6;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.72rem;
+}
+
+/* Industry pills */
+
+.am-industry-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.am-industry-btn {
+  padding: 0.45rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.am-industry-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.am-industry-btn.active {
+  background: rgba(245, 166, 35, 0.12);
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+/* Generic pill row */
+
+.am-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.am-pill {
+  padding: 0.35rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.am-pill:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.am-pill.active {
+  background: rgba(245, 166, 35, 0.1);
+  border-color: rgba(245, 166, 35, 0.6);
+  color: var(--amber);
+}
+
+/* Error banner */
+
+.am-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 1rem;
+  background: rgba(224, 82, 82, 0.08);
+  border: 1px solid rgba(224, 82, 82, 0.25);
+  border-radius: var(--radius);
+  color: var(--red);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* Submit row */
+
+.am-submit-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.am-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1.75rem;
+  background: var(--amber);
+  color: #0a0908;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.am-generate-btn:hover:not(:disabled) {
+  background: #fbb940;
+}
+
+.am-generate-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.am-generate-btn .am-spinner {
+  border-color: rgba(10, 9, 8, 0.2);
+  border-top-color: #0a0908;
+}
+
+.am-arrow {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.am-generate-note {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
+/* ── Brand reference files ─────────────────────────────────────────────────── */
+.am-file-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.25rem;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 0.6rem;
+}
+
+.am-file-drop:hover {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.am-file-drop-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.am-brand-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.am-brand-file-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+.am-brand-file-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.am-brand-file-remove:hover {
+  color: var(--text);
+}

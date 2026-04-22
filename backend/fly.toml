@@ -1,0 +1,26 @@
+app = "ad-creative-machine-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  ASSET_STORE_PROVIDER = "local"
+  LOCAL_ASSET_DIR = "/tmp/ad-machine-assets"
+  CORS_ORIGINS = "https://web3growthlab.com,https://www.web3growthlab.com,https://web3growthlabs.com,https://www.web3growthlabs.com,http://localhost:5173,http://localhost:5174"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = false
+  min_machines_running = 1
+  max_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"

@@ -7,28 +7,40 @@ from ad_machine.schemas.copy_pack import CopyPack, CopyVariation
 from ad_machine.schemas.creative_pack import VisualAsset
 from ad_machine.storage.asset_store import AssetStore
 
-# Verify this model ID against https://ai.google.dev/gemini-api/docs/image-generation at build time
-GEMINI_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+# Primary: gemini-2.5-flash-image ("Nano Banana") — native image generation
+# Fallback: imagen-4.0-fast-generate-001 — dedicated Imagen 4 model
+IMAGEN_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+IMAGEN_FALLBACK = "imagen-4.0-fast-generate-001"
+
+RATIO_MAP = {
+    "16:9":   "16:9",
+    "1:1":    "1:1",
+    "1.91:1": "16:9",
+    "4:5":    "4:5",
+    "9:16":   "9:16",
+    "4:3":    "4:3",
+    "3:4":    "3:4",
+}
 
 PLATFORM_IMAGE_SPECS = {
     "x": [
-        {"name": "wide", "width": 1600, "height": 900, "ratio": "16:9"},
+        {"name": "wide",   "width": 1600, "height": 900,  "ratio": "16:9"},
         {"name": "square", "width": 1200, "height": 1200, "ratio": "1:1"},
     ],
     "linkedin": [
-        {"name": "feed", "width": 1200, "height": 627, "ratio": "1.91:1"},
+        {"name": "feed",   "width": 1200, "height": 627,  "ratio": "1.91:1"},
         {"name": "square", "width": 1200, "height": 1200, "ratio": "1:1"},
     ],
     "meta": [
-        {"name": "square", "width": 1080, "height": 1080, "ratio": "1:1"},
+        {"name": "square",   "width": 1080, "height": 1080, "ratio": "1:1"},
         {"name": "portrait", "width": 1080, "height": 1350, "ratio": "4:5"},
-        {"name": "story", "width": 1080, "height": 1920, "ratio": "9:16"},
+        {"name": "story",    "width": 1080, "height": 1920, "ratio": "9:16"},
     ],
 }
 
-TOP_VARIATIONS_PER_PLATFORM = 3
-BATCH_SIZE = int(os.getenv("IMAGE_GEN_BATCH_SIZE", "5"))
-BATCH_DELAY_S = float(os.getenv("IMAGE_GEN_BATCH_DELAY_S", "1.0"))
+TOP_VARIATIONS_PER_PLATFORM = 1  # 1 image per platform = 3 total (cost control)
+BATCH_SIZE = int(os.getenv("IMAGE_GEN_BATCH_SIZE", "3"))
+BATCH_DELAY_S = float(os.getenv("IMAGE_GEN_BATCH_DELAY_S", "2.0"))
 
 
 class ImageGenerator:
@@ -51,7 +63,7 @@ class ImageGenerator:
             specs = PLATFORM_IMAGE_SPECS.get(platform)
             if not specs:
                 continue
-            for spec in specs:
+            for spec in specs[:1]:  # 1 spec per platform to keep it fast
                 for copy_var in copies[:TOP_VARIATIONS_PER_PLATFORM]:
                     prompt = self._build_prompt(brief, platform, spec, copy_var)
                     jobs.append((prompt, spec, platform, project_id))
@@ -63,12 +75,14 @@ class ImageGenerator:
             batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
             for r in batch_results:
                 if isinstance(r, Exception):
-                    print(f"Image gen failed: {r}")
+                    print(f"[image_gen] FAILED {type(r).__name__}: {r}")
                     continue
-                results.append(r)
+                if r is not None:
+                    results.append(r)
             if i + BATCH_SIZE < len(jobs):
                 await asyncio.sleep(BATCH_DELAY_S)
 
+        print(f"[image_gen] Generated {len(results)} images from {len(jobs)} jobs")
         return _organize_by_platform(results)
 
     async def regenerate_one(
@@ -85,23 +99,22 @@ class ImageGenerator:
 
     async def _generate_one(
         self, prompt: str, spec: dict, platform: str, project_id: str
-    ) -> VisualAsset:
-        from google.genai import types
-
+    ) -> VisualAsset | None:
         client = self._get_client()
-        response = await client.aio.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-                image_config=types.ImageConfig(aspect_ratio=spec["ratio"]),
-            ),
-        )
+        model_used = IMAGEN_MODEL
 
-        image_part = next(
-            p for p in response.candidates[0].content.parts if p.inline_data is not None
-        )
-        image_bytes = image_part.inline_data.data
+        image_bytes = await _try_generate_content(client, model_used, prompt)
+
+        # Fallback: Imagen 4 generate_images API
+        if image_bytes is None:
+            print(f"[image_gen] Primary model failed, trying Imagen 4 fallback: {IMAGEN_FALLBACK}")
+            model_used = IMAGEN_FALLBACK
+            image_bytes = await _try_imagen_generate(client, model_used, prompt, spec)
+
+        if not image_bytes:
+            print(f"[image_gen] No image data returned for {platform}/{spec['name']}")
+            return None
+
         asset_id = str(uuid.uuid4())
 
         url = await self.asset_store.upload(
@@ -118,7 +131,7 @@ class ImageGenerator:
             width=spec["width"],
             height=spec["height"],
             prompt_used=prompt,
-            model=GEMINI_MODEL,
+            model=model_used,
             created_at=datetime.utcnow(),
         )
 
@@ -130,41 +143,71 @@ class ImageGenerator:
         composition = _composition_for_ratio(spec["ratio"])
         text_zone = _text_overlay_zone(platform, spec)
         per_platform_note = vd.per_platform_visual_notes.get(platform, "")
+        avoid_list = ', '.join(vd.imagery_to_avoid) if vd.imagery_to_avoid else "stock-photo aesthetic, generic gradients"
 
-        return f"""{vd.aesthetic}
+        return f"""{vd.aesthetic}. {theme}. Color palette: {', '.join(vd.color_palette[:4])}. {vd.typography_feel} typography feel. {composition} composition. {per_platform_note}. Ad creative with clear focal point, room for {text_zone} text overlay, scroll-stopping at thumbnail size. No text, no words, no logos in the image. Avoid: {avoid_list}, stock photos, generic gradients, AI-art look.""".strip()
 
-Subject: {theme}
 
-Color palette: {', '.join(vd.color_palette)}
+async def _try_generate_content(client, model: str, prompt: str):
+    """Try generate_content with IMAGE modality; return PNG bytes or None."""
+    from google.genai import types
+    try:
+        response = await client.aio.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+            ),
+        )
+        for part in response.candidates[0].content.parts:
+            if part.inline_data is not None:
+                return part.inline_data.data
+        print(f"[image_gen] generate_content returned no inline_data for model={model}")
+        return None
+    except Exception as e:
+        print(f"[image_gen] generate_content failed for model={model}: {type(e).__name__}: {e}")
+        return None
 
-Typography feel: {vd.typography_feel}
 
-Platform-specific note: {per_platform_note}
-
-Composition: {composition}
-
-Avoid: {', '.join(vd.imagery_to_avoid)}, generic crypto imagery, stock-photo aesthetic, generic gradients, AI-art look, hands holding phones with Bitcoin logos, robot imagery
-
-Image must work as an ad creative: clear focal point, room for {text_zone} text overlay if needed, scroll-stopping at thumbnail size.
-
-Brand context: This is for an ad about a Web3 protocol.""".strip()
+async def _try_imagen_generate(client, model: str, prompt: str, spec: dict):
+    """Try Imagen 4 generate_images API and return PNG bytes or None."""
+    from google.genai import types
+    try:
+        ratio = RATIO_MAP.get(spec["ratio"], "1:1")
+        response = await client.aio.models.generate_images(
+            model=model,
+            prompt=prompt,
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio=ratio,
+                output_mime_type="image/png",
+            ),
+        )
+        if response.generated_images:
+            img = response.generated_images[0]
+            return img.image.image_bytes
+        print(f"[image_gen] imagen generate_images returned no images for model={model}")
+        return None
+    except Exception as e:
+        print(f"[image_gen] imagen generate_images failed for model={model}: {type(e).__name__}: {e}")
+        return None
 
 
 def _select_imagery_theme(themes: list[str], angle: str) -> str:
     if not themes:
-        return "abstract editorial illustration related to decentralized finance"
+        return "Clean editorial product illustration"
     idx = hash(angle) % len(themes)
     return themes[idx]
 
 
 def _composition_for_ratio(ratio: str) -> str:
     return {
-        "16:9": "horizontal, hero subject left or center, negative space right for text",
-        "1:1": "centered subject, room around edges",
-        "1.91:1": "horizontal banner, subject offset, room for text",
-        "4:5": "portrait, subject centered, vertical flow",
-        "9:16": "vertical story, subject top or center, room for caption at bottom",
-    }.get(ratio, "balanced composition")
+        "16:9":   "horizontal hero with subject left-center, negative space right",
+        "1:1":    "centered subject with breathing room around edges",
+        "1.91:1": "horizontal banner with subject offset left",
+        "4:5":    "portrait with subject centered, vertical flow",
+        "9:16":   "vertical story with subject top-center, space at bottom for caption",
+    }.get(ratio, "balanced")
 
 
 def _text_overlay_zone(platform: str, spec: dict) -> str:

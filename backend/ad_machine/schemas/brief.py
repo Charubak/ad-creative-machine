@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 Platform = Literal["x", "linkedin", "meta", "google_rsa"]
-ExtraPlatformName = Literal["coinzilla", "bitmedia", "reddit"]
+ExtraPlatformName = Literal["coinzilla", "bitmedia", "reddit", "tiktok", "youtube", "pinterest", "twitter", "x", "instagram", "facebook"]
 
 
 class Angle(BaseModel):

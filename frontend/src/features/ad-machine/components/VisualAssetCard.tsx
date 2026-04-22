@@ -1,6 +1,13 @@
 import type { VisualAsset } from "../types";
 import { adMachineApi } from "../api/adMachineClient";
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? "https://ad-creative-machine-api.fly.dev";
+
+function getImageSrc(asset: VisualAsset): string {
+  // Always proxy through the backend — works for local file:// and S3 URLs alike
+  return `${API_BASE}/api/ad-machine/visual-assets/${asset.asset_id}/image`;
+}
+
 interface Props {
   asset: VisualAsset;
   selected?: boolean;
@@ -20,7 +27,7 @@ export function VisualAssetCard({ asset, selected, onSelect }: Props) {
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     const a = document.createElement("a");
-    a.href = asset.url;
+    a.href = getImageSrc(asset);
     a.download = `${asset.platform}_${asset.spec_name}_${asset.asset_id.slice(0, 8)}.png`;
     a.click();
   };
@@ -31,20 +38,16 @@ export function VisualAssetCard({ asset, selected, onSelect }: Props) {
       onClick={onSelect}
       title={`${asset.width}×${asset.height} · ${asset.spec_name}`}
     >
-      {asset.url.startsWith("file://") || asset.url.startsWith("http") ? (
-        <img
-          src={asset.url}
-          alt={`${asset.platform} ${asset.spec_name}`}
-          style={{ aspectRatio: `${asset.width}/${asset.height}`, maxHeight: "200px" }}
-          onError={(e) => {
-            (e.target as HTMLImageElement).style.display = "none";
-          }}
-        />
-      ) : (
-        <div style={{ aspectRatio: `${asset.width}/${asset.height}`, background: "var(--surface2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: "0.75rem" }}>
-          {asset.width}×{asset.height}
-        </div>
-      )}
+      <img
+        src={getImageSrc(asset)}
+        alt={`${asset.platform} ${asset.spec_name}`}
+        style={{ width: "100%", aspectRatio: `${asset.width}/${asset.height}`, objectFit: "cover", display: "block", background: "var(--surface2)" }}
+        onError={(e) => {
+          const el = e.target as HTMLImageElement;
+          el.style.display = "none";
+          el.insertAdjacentHTML("afterend", `<div style="aspect-ratio:${asset.width}/${asset.height};display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:0.75rem;background:var(--surface2)">${asset.width}×${asset.height}</div>`);
+        }}
+      />
       <div className="am-visual-card-footer">
         <span>{asset.spec_name} · {asset.width}×{asset.height}</span>
         <div style={{ display: "flex", gap: "0.5rem" }}>

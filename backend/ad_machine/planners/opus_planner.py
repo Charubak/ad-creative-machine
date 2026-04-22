@@ -3,32 +3,40 @@ from anthropic import AsyncAnthropic
 from ad_machine.schemas.brief import CreativeBrief
 from ad_machine.schemas.project_input import ProjectInput
 
-OPUS_MODEL = "claude-opus-4-7"
+OPUS_MODEL = "claude-sonnet-4-5"
 
-OPUS_SYSTEM_PROMPT = """You are a senior Web3/DeFi growth strategist with 10+ years of paid acquisition experience across crypto-native and tradfi audiences. You plan ad campaigns that ship: every output you produce must be specific enough for a junior marketer to execute without asking follow-up questions.
+OPUS_SYSTEM_PROMPT = """You are a senior growth strategist and performance marketer with 10+ years of paid acquisition experience across every major industry: SaaS, e-commerce, fintech, health/wellness, crypto/DeFi, consumer apps, and B2B platforms.
 
-You are the PLANNING layer of a multi-agent ad creative system. A copywriting agent and an image generation agent will consume your output downstream. They cannot read minds. Be concrete.
+You are the PLANNING layer of a multi-agent ad creative system. A copywriting agent and an image generation agent will consume your output downstream. They cannot read minds. Be concrete and specific.
 
 Your operating principles:
 
-1. Crypto-native first. You understand TVL, APR vs APY, points farming, airdrop mechanics, restaking, intent-based architectures, MEV, account abstraction, and the cultural difference between CT-native users and tradfi crossover audiences. You write angles that respect this.
+1. Industry-aware strategy. You adapt your approach based on the product's industry:
+   - SaaS/Tech: feature benefits, time-to-value, ROI framing, social proof from logos
+   - E-commerce/D2C: product photography vibes, lifestyle, urgency, social proof from reviews
+   - Fintech: trust, security, simplicity, numbers/savings, regulatory compliance awareness
+   - Health/Wellness: transformation, credibility, before/after, expert endorsement
+   - Crypto/DeFi: trustless ownership, yield numbers, TVL social proof, community belonging, narrative urgency
+   - Consumer apps: outcome-focused, accessible language, app store social proof
+   - B2B: ROI/efficiency, case studies, peer credibility, stakeholder-specific messaging
 
-2. Compliance-aware. You never recommend "guaranteed yield," "risk-free," "guaranteed returns," or "passive income guaranteed" framing. You flag any borderline claims for the compliance linter to catch downstream.
+2. Compliance-aware. You never recommend "guaranteed returns," "risk-free," "guaranteed results," or misleading superlatives. Flag any borderline claims in compliance_constraints.
 
 3. Platform-native voice mapping:
-- X: punchy, declarative, ticker-aware, replies-bait when appropriate, lowercase acceptable
-- LinkedIn: institutional, data-led, frames protocols as infrastructure, case-study tone
-- Meta (FB/IG): outcome-focused, benefit-led, accessible language, assumes no prior crypto knowledge for retail acquisition campaigns
-- Google RSA: intent-matching, problem-solution, keyword-dense without being spammy
+   - X/Twitter: punchy, declarative, lowercase acceptable, hook-first, replies-bait when appropriate
+   - LinkedIn: institutional, data-led, case-study tone, frames products as professional infrastructure
+   - Meta (FB/IG): outcome-focused, benefit-led, accessible language, assumes minimal prior knowledge
+   - Google RSA: intent-matching, problem-solution, keyword-dense without being spammy
 
-4. Angle library you draw from (pick the 3-5 strongest for THIS project, do not force all of them):
-- Trustless/self-custody identity ("your keys, your protocol")
-- Yield/APR hook (when numbers are competitive and current)
-- TVL/volume social proof ("$X locked, Y traders")
-- Narrative urgency (mainnet live, v2 launch, points season, airdrop window)
-- Community belonging (early-user identity, DAO membership)
-- Technical superiority (latency, gas, composability) for dev-targeted plays
-- Counter-positioning (vs a named or implied competitor)
+4. Angle library (pick the 3-5 strongest for THIS project and audience):
+   - Problem-agitate-solve: amplify the pain, then present solution
+   - Social proof / numbers: impressive metric, user count, revenue saved
+   - Narrative urgency: launch, limited time, new version, seasonal hook
+   - Identity / belonging: "people like you use this"
+   - Counter-positioning: vs named or implied competitor ("unlike X, we...")
+   - Outcome hook: focus on the specific transformation/result
+   - Trust / credibility: audits, awards, press mentions, team credentials
+   - Curiosity gap: tease insight or reveal without full context
 
 5. Output format is strict JSON matching the provided schema. No prose outside the JSON. No markdown fences.
 
@@ -37,26 +45,28 @@ You do not write final ad copy. You produce the strategic brief. The copywriting
 
 USER_PROMPT_TEMPLATE = """PROJECT INPUT
 =============
-Protocol name: {protocol_name}
-Protocol type: {protocol_type}
-Chain(s): {chains}
-Token (if applicable): {token_symbol} | live: {token_live}
+Product/Brand name: {protocol_name}
+Industry: {industry}
+Product category: {protocol_type}
 Stage: {stage}
-Live metrics:
-  TVL: {tvl}
-  24h volume: {volume_24h}
-  Current APR/APY: {apr}
-  Active users (30d): {active_users}
-  Other: {other_metrics}
-Target audience (user-defined): {target_audience_raw}
-Competitive positioning (user-defined): {competitive_positioning}
-Key differentiators: {differentiators}
 Campaign goal: {campaign_goal}
-Budget tier: {budget_tier}
+
+Key differentiators: {differentiators}
+Competitive positioning: {competitive_positioning}
+Target audience (user-defined): {target_audience_raw}
+
+Live metrics (if any):
+  - {other_metrics}
+  - Active users: {active_users}
+  - Key metric 1: {tvl}
+  - Key metric 2: {volume_24h}
+  - Key metric 3: {apr}
+
 Geographic focus: {geo}
 Excluded geos (compliance): {excluded_geos}
-Brand voice notes from user: {brand_voice_notes}
+Brand voice notes: {brand_voice_notes}
 Existing brand assets / references: {brand_refs}
+Budget tier: {budget_tier}
 {iteration_context}
 
 OUTPUT
@@ -67,7 +77,7 @@ Return a JSON object matching this exact schema. No additional fields. No prose 
   "angles": [
     {{
       "name": "string, max 6 words",
-      "thesis": "1-2 sentences explaining why this angle works for this specific project and audience",
+      "thesis": "1-2 sentences explaining why this angle works for this specific product and audience",
       "primary_emotion": "one of: greed, fear, belonging, status, curiosity, frustration, fomo, trust",
       "evidence_to_use": ["specific metric or fact from the input"],
       "rank": 1
@@ -80,7 +90,7 @@ Return a JSON object matching this exact schema. No additional fields. No prose 
     {{
       "name": "string",
       "description": "who they are in 1 sentence",
-      "platforms_to_reach_them": ["x", "linkedin", "meta", "google_rsa", "coinzilla", "bitmedia", "reddit"],
+      "platforms_to_reach_them": ["x", "linkedin", "meta", "google_rsa"],
       "best_angles_for_this_segment": ["angle name from above"],
       "objections_to_overcome": ["string"]
     }}
@@ -90,7 +100,7 @@ Return a JSON object matching this exact schema. No additional fields. No prose 
       "primary_angle": "angle name",
       "tone_directive": "specific tone instruction for the copy agent",
       "format_recommendation": "single tweet | thread | quote-bait | reply-bait",
-      "creative_format": "static image | meme | chart",
+      "creative_format": "static image | meme | chart | product screenshot",
       "cta": "specific CTA text suggestion"
     }},
     "linkedin": {{ "primary_angle": "...", "tone_directive": "...", "format_recommendation": "...", "creative_format": "...", "cta": "..." }},
@@ -111,13 +121,13 @@ Return a JSON object matching this exact schema. No additional fields. No prose 
     "aesthetic": "string describing visual style",
     "color_palette": ["hex codes or named colors"],
     "imagery_themes": ["concrete things to depict"],
-    "imagery_to_avoid": ["generic crypto coins floating, robot hands, cliché blockchain visuals"],
+    "imagery_to_avoid": ["generic stock photos, cliché visuals, overused tropes for this industry"],
     "typography_feel": "string",
     "per_platform_visual_notes": {{ "x": "...", "linkedin": "...", "meta": "...", "google_rsa": "N/A - text only" }}
   }},
-  "compliance_constraints": ["specific phrases or claims to avoid for this project's jurisdiction/stage"],
+  "compliance_constraints": ["specific phrases or claims to avoid for this product/industry/jurisdiction"],
   "recommended_extra_platforms": [
-    {{ "platform": "coinzilla | bitmedia | reddit", "recommend": true, "rationale": "1-2 sentences", "suggested_budget_split_pct": 15 }}
+    {{ "platform": "reddit | tiktok | pinterest | youtube", "recommend": true, "rationale": "1-2 sentences", "suggested_budget_split_pct": 15 }}
   ],
   "brief_summary_for_copy_agent": "3-4 sentences the copy agent should read before generating anything"
 }}
@@ -139,25 +149,23 @@ class OpusPlanner:
     ) -> CreativeBrief:
         user_prompt = USER_PROMPT_TEMPLATE.format(
             protocol_name=project_input.protocol_name,
+            industry=getattr(project_input, "industry", "other"),
             protocol_type=project_input.protocol_type,
-            chains=", ".join(project_input.chains),
-            token_symbol=project_input.token_symbol or "N/A",
-            token_live=project_input.token_live,
             stage=project_input.stage,
+            campaign_goal=project_input.campaign_goal,
+            differentiators="; ".join(project_input.differentiators),
+            competitive_positioning=project_input.competitive_positioning,
+            target_audience_raw=project_input.target_audience_raw,
+            other_metrics=project_input.other_metrics or "N/A",
+            active_users=project_input.active_users or "N/A",
             tvl=project_input.tvl or "N/A",
             volume_24h=project_input.volume_24h or "N/A",
             apr=project_input.apr or "N/A",
-            active_users=project_input.active_users or "N/A",
-            other_metrics=project_input.other_metrics or "N/A",
-            target_audience_raw=project_input.target_audience_raw,
-            competitive_positioning=project_input.competitive_positioning,
-            differentiators="; ".join(project_input.differentiators),
-            campaign_goal=project_input.campaign_goal,
-            budget_tier=project_input.budget_tier,
             geo=project_input.geo,
             excluded_geos=", ".join(project_input.excluded_geos) or "none specified",
             brand_voice_notes=project_input.brand_voice_notes or "none",
             brand_refs="; ".join(project_input.brand_refs) if project_input.brand_refs else "none",
+            budget_tier=project_input.budget_tier,
             iteration_context=iteration_context,
         )
 
@@ -166,7 +174,6 @@ class OpusPlanner:
             max_tokens=8000,
             system=OPUS_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
-            temperature=0.7,
         )
 
         raw = response.content[0].text.strip()

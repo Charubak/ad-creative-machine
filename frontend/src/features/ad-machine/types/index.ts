@@ -93,6 +93,7 @@ export interface SSEEvent {
 
 export interface ProjectInput {
   protocol_name: string;
+  industry?: string;
   protocol_type: string;
   chains: string[];
   token_symbol?: string;
