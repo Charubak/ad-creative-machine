@@ -120,6 +120,17 @@ export function ProjectInput({ onJobStarted }: Props) {
         extra_platforms_enabled: true,
         token_live: false,
       });
+
+      // Upload brand files if any
+      if (brandFiles.length > 0) {
+        const form = new FormData();
+        brandFiles.forEach(f => form.append("files", f));
+        await fetch(
+          `${import.meta.env.VITE_API_BASE ?? "https://ad-creative-machine-api.fly.dev"}/api/ad-machine/projects/${project_id}/brand-assets`,
+          { method: "POST", body: form }
+        );
+      }
+
       const { job_id } = await adMachineApi.runProject(project_id, "demo");
       onJobStarted(project_id, job_id);
     } catch (e: unknown) {

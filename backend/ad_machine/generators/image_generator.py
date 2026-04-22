@@ -56,8 +56,10 @@ class ImageGenerator:
         return self._client
 
     async def generate_for_pack(
-        self, brief: CreativeBrief, copy_pack: CopyPack, project_id: str
+        self, brief: CreativeBrief, copy_pack: CopyPack, project_id: str,
+        brand_assets: list[dict] | None = None,
     ) -> dict[str, list[VisualAsset]]:
+        brand_context = _load_brand_context(brand_assets or [])
         jobs = []
         for platform, copies in copy_pack.variations.items():
             specs = PLATFORM_IMAGE_SPECS.get(platform)
@@ -65,13 +67,13 @@ class ImageGenerator:
                 continue
             for spec in specs[:1]:  # 1 spec per platform to keep it fast
                 for copy_var in copies[:TOP_VARIATIONS_PER_PLATFORM]:
-                    prompt = self._build_prompt(brief, platform, spec, copy_var)
-                    jobs.append((prompt, spec, platform, project_id))
+                    prompt = self._build_prompt(brief, platform, spec, copy_var, brand_context)
+                    jobs.append((prompt, spec, platform, project_id, brand_context))
 
         results = []
         for i in range(0, len(jobs), BATCH_SIZE):
             batch = jobs[i:i + BATCH_SIZE]
-            batch_tasks = [self._generate_one(*j) for j in batch]
+            batch_tasks = [self._generate_one(prompt, spec, platform, project_id, brand_context) for prompt, spec, platform, project_id, brand_context in batch]
             batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
             for r in batch_results:
                 if isinstance(r, Exception):
@@ -92,20 +94,23 @@ class ImageGenerator:
         spec_name: str,
         copy_variation: CopyVariation,
         project_id: str,
+        brand_assets: list[dict] | None = None,
     ) -> VisualAsset:
+        brand_context = _load_brand_context(brand_assets or [])
         spec = next(s for s in PLATFORM_IMAGE_SPECS[platform] if s["name"] == spec_name)
-        prompt = self._build_prompt(brief, platform, spec, copy_variation)
-        return await self._generate_one(prompt, spec, platform, project_id)
+        prompt = self._build_prompt(brief, platform, spec, copy_variation, brand_context)
+        return await self._generate_one(prompt, spec, platform, project_id, brand_context)
 
     async def _generate_one(
-        self, prompt: str, spec: dict, platform: str, project_id: str
+        self, prompt: str, spec: dict, platform: str, project_id: str,
+        brand_context: dict | None = None,
     ) -> VisualAsset | None:
         client = self._get_client()
         model_used = IMAGEN_MODEL
 
-        image_bytes = await _try_generate_content(client, model_used, prompt)
+        image_bytes = await _try_generate_content(client, model_used, prompt, brand_context)
 
-        # Fallback: Imagen 4 generate_images API
+        # Fallback: Imagen 4 generate_images API (no multimodal, text-only prompt)
         if image_bytes is None:
             print(f"[image_gen] Primary model failed, trying Imagen 4 fallback: {IMAGEN_FALLBACK}")
             model_used = IMAGEN_FALLBACK
@@ -136,7 +141,8 @@ class ImageGenerator:
         )
 
     def _build_prompt(
-        self, brief: CreativeBrief, platform: str, spec: dict, copy_var: CopyVariation
+        self, brief: CreativeBrief, platform: str, spec: dict, copy_var: CopyVariation,
+        brand_context: dict | None = None,
     ) -> str:
         vd = brief.visual_direction
         theme = _select_imagery_theme(vd.imagery_themes, copy_var.angle_used)
@@ -145,16 +151,57 @@ class ImageGenerator:
         per_platform_note = vd.per_platform_visual_notes.get(platform, "")
         avoid_list = ', '.join(vd.imagery_to_avoid) if vd.imagery_to_avoid else "stock-photo aesthetic, generic gradients"
 
-        return f"""{vd.aesthetic}. {theme}. Color palette: {', '.join(vd.color_palette[:4])}. {vd.typography_feel} typography feel. {composition} composition. {per_platform_note}. Ad creative with clear focal point, room for {text_zone} text overlay, scroll-stopping at thumbnail size. No text, no words, no logos in the image. Avoid: {avoid_list}, stock photos, generic gradients, AI-art look.""".strip()
+        base = f"""{vd.aesthetic}. {theme}. Color palette: {', '.join(vd.color_palette[:4])}. {vd.typography_feel} typography feel. {composition} composition. {per_platform_note}. Ad creative with clear focal point, room for {text_zone} text overlay, scroll-stopping at thumbnail size. No text, no words, no logos in the image. Avoid: {avoid_list}, stock photos, generic gradients, AI-art look."""
+
+        # Append brand notes if provided
+        if brand_context and brand_context.get("notes"):
+            base += f" Brand style requirements: {brand_context['notes']}."
+
+        return base.strip()
 
 
-async def _try_generate_content(client, model: str, prompt: str):
-    """Try generate_content with IMAGE modality; return PNG bytes or None."""
+def _load_brand_context(brand_assets: list[dict]) -> dict:
+    """Load brand asset files into memory for use in generation. Returns {notes, images: [{bytes, mime}]}."""
+    import base64
+    context = {"notes": "", "images": []}
+    for asset in brand_assets:
+        mime = asset.get("mime_type", "")
+        path = asset.get("path", "")
+        if not path:
+            continue
+        # Text notes embedded in filenames aren't useful — only load actual image files
+        if mime.startswith("image/") or path.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")):
+            try:
+                with open(path, "rb") as f:
+                    data = f.read()
+                actual_mime = mime if mime.startswith("image/") else "image/png"
+                context["images"].append({"bytes": data, "mime": actual_mime, "filename": asset.get("filename", "")})
+                print(f"[image_gen] Loaded brand image: {asset.get('filename')} ({len(data)} bytes)")
+            except Exception as e:
+                print(f"[image_gen] Could not load brand file {path}: {e}")
+    return context
+
+
+async def _try_generate_content(client, model: str, prompt: str, brand_context: dict | None = None):
+    """Try generate_content with IMAGE modality; return PNG bytes or None.
+    If brand_context has reference images, include them as multimodal input."""
     from google.genai import types
     try:
+        # Build contents — text prompt + optional brand reference images
+        contents = []
+        if brand_context and brand_context.get("images"):
+            for img in brand_context["images"][:3]:  # max 3 reference images
+                contents.append(types.Part.from_bytes(data=img["bytes"], mime_type=img["mime"]))
+            contents.append(types.Part.from_text(
+                f"Use the above brand reference image(s) as style/colour/aesthetic guidance ONLY. "
+                f"Do NOT copy them literally. Now generate: {prompt}"
+            ))
+        else:
+            contents = prompt
+
         response = await client.aio.models.generate_content(
             model=model,
-            contents=prompt,
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
             ),

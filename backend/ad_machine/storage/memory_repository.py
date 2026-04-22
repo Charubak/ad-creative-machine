@@ -23,6 +23,7 @@ class MemoryRepository:
         self._visual_assets: list[dict] = []
         self._creative_packs: dict[str, str] = {}
         self._performance: dict[str, dict] = {}
+        self._brand_assets: dict[str, list[dict]] = {}  # project_id → list of {path, mime_type, filename}
         self.pool = None  # not supported in memory mode
 
     # ── Projects ──────────────────────────────────────────────────────────────
@@ -155,6 +156,18 @@ class MemoryRepository:
 
     async def update_export_manifest(self, pack_id: str, manifest: dict) -> None:
         pass  # no-op in memory mode
+
+    # ── Brand Assets ─────────────────────────────────────────────────────────
+
+    async def save_brand_asset(self, project_id: str, path: str, filename: str, mime_type: str) -> None:
+        self._brand_assets.setdefault(project_id, []).append({
+            "path": path,
+            "filename": filename,
+            "mime_type": mime_type,
+        })
+
+    async def get_brand_assets(self, project_id: str) -> list[dict]:
+        return self._brand_assets.get(project_id, [])
 
     # ── Performance ───────────────────────────────────────────────────────────
 

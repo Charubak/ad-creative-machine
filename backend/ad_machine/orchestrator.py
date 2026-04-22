@@ -85,8 +85,9 @@ class AdMachineOrchestrator:
                 "started_at": _now(),
             })
 
+            brand_assets = await self.repo.get_brand_assets(project_id) if hasattr(self.repo, "get_brand_assets") else []
             image_gen = ImageGenerator(self.asset_store)
-            visuals_by_platform = await image_gen.generate_for_pack(brief, copy_pack, project_id)
+            visuals_by_platform = await image_gen.generate_for_pack(brief, copy_pack, project_id, brand_assets=brand_assets)
             await self.repo.save_visual_assets(visuals_by_platform, project_id, brief_id)
             asset_count = sum(len(v) for v in visuals_by_platform.values())
 
@@ -176,8 +177,9 @@ class AdMachineOrchestrator:
             copy_pack = await copy_gen.generate_pack(brief, brief_id)
             copy_pack_id = await self.repo.save_copy_pack(copy_pack)
 
+            brand_assets = await self.repo.get_brand_assets(project_id) if hasattr(self.repo, "get_brand_assets") else []
             image_gen = ImageGenerator(self.asset_store)
-            visuals_by_platform = await image_gen.generate_for_pack(brief, copy_pack, project_id)
+            visuals_by_platform = await image_gen.generate_for_pack(brief, copy_pack, project_id, brand_assets=brand_assets)
             await self.repo.save_visual_assets(visuals_by_platform, project_id, brief_id)
 
             pairings = self._build_pairings(copy_pack, visuals_by_platform)

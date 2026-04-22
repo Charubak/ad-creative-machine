@@ -103,6 +103,39 @@ async def create_project(project_input: ProjectInput, request=None):
     return {"project_id": project_id}
 
 
+@router.post("/projects/{project_id}/brand-assets")
+async def upload_brand_assets(
+    project_id: str,
+    files: list[UploadFile] = File(...),
+    request=None,
+):
+    """Accept up to 5 brand reference files (images, PDFs). Stored for use in image generation."""
+    import os, aiofiles
+    repo = _get_repo(request)
+    try:
+        await repo.get_project(project_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if len(files) > 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 brand files allowed")
+
+    base_dir = os.path.join(os.getenv("LOCAL_ASSET_DIR", "/tmp/ad-machine-assets"), "brand", project_id)
+    os.makedirs(base_dir, exist_ok=True)
+
+    saved = []
+    for f in files:
+        safe_name = f.filename.replace("/", "_").replace("..", "_")
+        path = os.path.join(base_dir, safe_name)
+        content = await f.read()
+        async with aiofiles.open(path, "wb") as out:
+            await out.write(content)
+        await repo.save_brand_asset(project_id, path, f.filename, f.content_type or "application/octet-stream")
+        saved.append({"filename": f.filename, "size": len(content)})
+
+    return {"uploaded": saved}
+
+
 @router.get("/projects/{project_id}")
 async def get_project(project_id: str, request=None):
     repo = _get_repo(request)
